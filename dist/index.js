@@ -5,6 +5,10 @@ import request from '~/utils/request'
 
 const defaultImg = require('~/static/images/icon-default-head.png');
 
+const baseLoadingConfig = {
+  isNeedLoadingShow: true
+}
+
 const api = {
   // 获取指定关联对象中的所有聊天记录，用于前台。
   GHIMGetHistoryMessagesByRelationTalker: (params) => {
@@ -24,6 +28,17 @@ const api = {
       params: params
     })
   },
+  // 获取最新报价 /Inquiry/GetQuoteByLast
+  GHInquiryGetQuoteByLast: (params) => {
+    return request.get('/Inquiry/GetQuoteByLast', {
+      params: params
+    })
+  },
+
+  // 创建报价单（修改也视为新建，生成一个新的报价单ID）
+  GHInquiryCreateQuote: (params) => {
+    return request.post('/Inquiry/CreateQuote', params, baseLoadingConfig)
+  }
 };
 
 export default class IMManager{
@@ -34,7 +49,9 @@ export default class IMManager{
     this.talkerList = [];  //聊天对象列表
     this.curTalker = {
       userName:'',
-      lastMessage: {}
+      lastMessage: {
+        dialogueID: 0
+      }
     };                   //当前聊天对象
     this.msgList = [];   //当前消息列表
     this.dialogueId = 0;  //当前对话Id
@@ -43,8 +60,9 @@ export default class IMManager{
     this.init();   //初始化函数
   }
 
-  init(){
-    this.loadTalkerListData();
+  async init(){
+    await this.loadTalkerListData();
+    await this.loadNewstQuoteData();
   }
 
   //加载聊天对象列表
@@ -67,7 +85,12 @@ export default class IMManager{
           item.isActive = true;
 
           return item;
-        });
+
+        }).filter(item => Boolean(item.userID > 0 && item.userID != that.options.relationUserId));
+
+        if(that.talkerList <= 0){
+          return false;
+        }
         that.curTalker = that.talkerList[0];
         that.msgList.push(that.curTalker.lastMessage);
       }
@@ -76,7 +99,13 @@ export default class IMManager{
     that.isLoaded = true;
   }
 
-  // 加载聊天对象的历史信息
+  //切换当前聊天对象
+  doSwitchCurTalker(item){
+    this.curTalker = item;
+    this.loadNewstQuoteData();
+  }
+
+  //加载聊天对象的历史信息
   async loadTalkerHistoryListData(){
     const that = this;
 
@@ -97,6 +126,15 @@ export default class IMManager{
         that.msgList = that.msgList.reverse().concat(rData).reverse();
       }
     });
+  }
+
+  //加载最新报价信息
+  async loadNewstQuoteData() {
+    const that = this;
+
+    await that.api.GHInquiryGetQuoteByLast({inquiryId: that.options.relationId, supplierUserId: that.curTalker.lastMessage.toUserID}).then(function (res) {
+
+    })
   }
 
 };
