@@ -46,6 +46,8 @@ export default class IMManager{
     this.api = api;  //调用的api
     this.options = options;  //配置项
 
+    this.defaultImg = defaultImg;
+    this.mode = options.mode || 'client';
     this.talkerList = [];  //聊天对象列表
     this.curTalker = {
       userName:'',
@@ -56,6 +58,7 @@ export default class IMManager{
     this.msgList = [];   //当前消息列表
     this.dialogueId = 0;  //当前对话Id
     this.isLoaded = false;  //IM是否初始化完成
+
 
     this.init();   //初始化函数
   }
@@ -72,13 +75,14 @@ export default class IMManager{
     await this.api.GHIMGetTalkerMessages({
       relationType: that.options.relationType,
       relationId: that.options.relationId,
-      relationUserId: that.options.relationUserId
+      relationUserId: (that.mode == 'client') ? that.options.selfId : that.options.defaultTalkerId, //创建单者的ID。在客户端指的是本人，在供应商端指的是聊天对象。
+      defaultTalkerId: that.options.defaultTalkerId
     }).then(function (res) {
       if(res.isCompleted){
         let rData = res.data;
 
         that.talkerList = rData.map(function (item, index) {
-          item.headImg = defaultImg;
+          item.headImg = that.defaultImg;
           item.isUnread = false;
           item.tag = 0;
           item.time = '14:21';
@@ -92,17 +96,42 @@ export default class IMManager{
           return false;
         }
         that.curTalker = that.talkerList[0];
-        that.msgList.push(that.curTalker.lastMessage);
+        that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);
       }
     });
 
     that.isLoaded = true;
   }
 
+  //接受信息处理
+  doReceiveMessage(res){
+    const that = this;
+    if(!(res instanceof Array) || res.length <= 0){
+      return false;
+    }
+
+    var lastMsg = res[0];
+
+    console.log(res);
+    var fromUserID = lastMsg.fromUserID;
+
+    if(fromUserID == that.curTalker.userID){
+      that.msgList.push(lastMsg);  //新消息来自当前用户
+    }
+
+    that.talkerList.map(function (item, index) {
+      if(item.userID == fromUserID && fromUserID != that.curTalker.userID){
+        item.isUnread = true;    //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
+      }
+    })
+  }
+
   //切换当前聊天对象
   doSwitchCurTalker(item){
-    this.curTalker = item;
-    this.loadNewstQuoteData();
+    const that = this;
+    that.curTalker = item;
+    that.msgList = [that.curTalker.lastMessage];
+    that.loadNewstQuoteData();
   }
 
   //加载聊天对象的历史信息
@@ -113,10 +142,11 @@ export default class IMManager{
       return false;
     }
 
+    let lastMsg = that.curTalker.lastMessage;
     await that.api.GHIMGetHistoryMessagesByRelationTalker({
       relationType: that.options.relationType,
       relationId: that.options.relationId,
-      dialogueId: that.curTalker.lastMessage.dialogueID,
+      dialogueId: lastMsg ? lastMsg.dialogueID : 0,
       lastMessageId: that.msgList[0].imMessageID
     }).
     then(function (res) {
@@ -129,11 +159,19 @@ export default class IMManager{
   }
 
   //加载最新报价信息
-  async loadNewstQuoteData() {
+  async loadNewstQuoteData(success, fail) {
     const that = this;
 
-    await that.api.GHInquiryGetQuoteByLast({inquiryId: that.options.relationId, supplierUserId: that.curTalker.lastMessage.toUserID}).then(function (res) {
+    let supplierUserId = (that.mode == 'client' ? that.curTalker.userID : that.options.selfId); //在客户端，供应商为对话者，取对话者ID。在供应商端，供应商为自己本人，取自己的ID
 
+    await that.api.GHInquiryGetQuoteByLast({inquiryId: that.options.relationId, supplierUserId: supplierUserId}).then(function (res) {
+       if(res.isCompleted){
+         success && success();
+       }else {
+         fail && fail();
+       }
+    }).catch(function () {
+       fail && fail();
     })
   }
 
