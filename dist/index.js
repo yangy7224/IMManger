@@ -90,7 +90,7 @@ export default class IMManager{
 
           return item;
 
-        }).filter(item => Boolean(item.userID > 0 && item.userID != that.options.relationUserId));
+        }).filter(item => Boolean(item.userID > 0 && item.userID != that.options.selfId));
 
         if(that.talkerList <= 0){
           return false;
@@ -113,6 +113,7 @@ export default class IMManager{
     var lastMsg = res[0];
 
     console.log(res);
+    console.log(that.curTalker);
     var fromUserID = lastMsg.fromUserID;
 
     if(fromUserID == that.curTalker.userID){
@@ -165,13 +166,13 @@ export default class IMManager{
     let supplierUserId = (that.mode == 'client' ? that.curTalker.userID : that.options.selfId); //在客户端，供应商为对话者，取对话者ID。在供应商端，供应商为自己本人，取自己的ID
 
     await that.api.GHInquiryGetQuoteByLast({inquiryId: that.options.relationId, supplierUserId: supplierUserId}).then(function (res) {
-       if(res.isCompleted){
-         success && success();
-       }else {
-         fail && fail();
-       }
-    }).catch(function () {
-       fail && fail();
+      if(res.isCompleted){
+        success && success(res);
+      }else {
+        fail && fail(res);
+      }
+    }).catch(function (err) {
+      fail && fail(err);
     })
   }
 
