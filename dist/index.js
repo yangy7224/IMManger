@@ -16,9 +16,15 @@ const api = {
       params: params
     })
   },
-  // 获取关联对象的聊天对象列表，附带最新消息
+  // 获取关联对象的聊天对象列表，附带最新消息（仅商城端采购商调用）
   GHIMGetTalkerMessages: (params) => {
     return request.get('/IM/GetTalkerByRelation', {
+      params: params
+    })
+  },
+  // 获取关联对象用户信息（仅非采购商调用）
+  GHIMGetTalkerInfo: (params) => {
+    return request.get('IM/GetTalkerInfo', {
       params: params
     })
   },
@@ -64,18 +70,24 @@ export default class IMManager{
   }
 
   async init(){
-    await this.loadTalkerListData();
+    const that = this;
+    if(that.mode == 'client'){
+      await this.loadTalkerListData();
+    }else{
+      await this.loadTalkerInfo();
+    }
+
     await this.loadNewstQuoteData();
   }
 
-  //加载聊天对象列表
+  //加载聊天对象列表(采购商获取)
   async loadTalkerListData(){
     const that = this;
 
     await this.api.GHIMGetTalkerMessages({
       relationType: that.options.relationType,
       relationId: that.options.relationId,
-      relationUserId: (that.mode == 'client') ? that.options.selfId : that.options.defaultTalkerId, //创建单者的ID。在客户端指的是本人，在供应商端指的是聊天对象。
+      relationUserId: that.options.selfId, //创建单者的ID。在客户端指的是本人，在供应商端指的是聊天对象。
       defaultTalkerId: that.options.defaultTalkerId
     }).then(function (res) {
       if(res.isCompleted){
@@ -99,6 +111,24 @@ export default class IMManager{
         that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);
       }
     });
+
+    that.isLoaded = true;
+  }
+
+  //加载聊天对象信息（供应商获取）
+  async loadTalkerInfo(){
+    const that = this;
+
+    await this.api.GHIMGetTalkerInfo({
+      relationType: that.options.relationType,
+      relationId: that.options.relationId,
+      userId: that.options.defaultTalkerId
+    }).then(function (res) {
+      if(res.isCompleted) {
+        that.curTalker = res.data;
+        that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);
+      }
+    })
 
     that.isLoaded = true;
   }
