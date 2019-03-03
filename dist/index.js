@@ -52,7 +52,7 @@ export default class IMManager{
     this.api = api;  //调用的api
     this.options = options;  //配置项
 
-    this.defaultImg = defaultImg;
+    this.defaultImg = defaultImg;  //当前默认头像
     this.mode = options.mode || 'client';
     this.talkerList = [];  //聊天对象列表
     this.curTalker = {
@@ -62,6 +62,7 @@ export default class IMManager{
       }
     };                   //当前聊天对象
     this.msgList = [];   //当前消息列表
+    this.msgCacheObj = {};   //所有的消息列表缓存，存储聊天列表对象在当前窗口产生的历史纪录.包括发送消息、接受消息。
     this.dialogueId = 0;  //当前对话Id
     this.isLoaded = false;  //IM是否初始化完成
 
@@ -73,11 +74,94 @@ export default class IMManager{
     const that = this;
     if(that.mode == 'client'){
       await this.loadTalkerListData();
+      await this.loadNewstQuoteData();
     }else{
       await this.loadTalkerInfo();
     }
+  }
 
-    await this.loadNewstQuoteData();
+  //接受信息处理
+  doReceiveMessage(res){
+    const that = this;
+
+    // messageType 0 和 1 代表什么意思？
+    if(!(res instanceof Array) || res.length <= 0){
+      return false;
+    }
+
+    if(res.length > 1){
+      // 大于1时，为系统把所有未读消息（包含所有人）全部推送过来
+      res.map(function (item, index) {
+        if(that.msgCacheObj[item.fromUserID] instanceof Array){
+          that.msgCacheObj[item.fromUserID].push(item);
+        }else {
+          that.msgCacheObj[item.fromUserID] = [];
+        }
+      })
+    }else{
+      // 等于1时，为把某个人的消息推送过来
+      var lastMsg = res[0];
+
+      var fromUserID = lastMsg.fromUserID;
+
+      that.msgCacheObj[fromUserID].push(lastMsg);
+
+      //新消息来自当前用户
+      if(fromUserID == that.curTalker.userID){
+        that.msgList.push(lastMsg);
+        that.doSetMessageRead();
+      }
+
+      that.talkerList.map(function (item, index) {
+        if(item.userID == fromUserID && fromUserID != that.curTalker.userID){
+          item.isUnread = true;    //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
+        }
+      })
+    }
+
+  }
+
+  //发送聊天消息处理
+  doSendMessage(vue, txt, relationId){
+    const that = this;
+
+    let lastMsg = that.curTalker.lastMessage;
+    var toUserID = that.curTalker.userID;
+
+    vue.$store.commit('msgDoSendMessage', {
+      type: 'Inquiry',
+      relationId: relationId,
+      toUserId: that.curTalker.userID,
+      dialogueId: lastMsg ? lastMsg.dialogueID : 0,
+      msg: txt
+    });
+
+    let msgBlock = {content: txt}
+
+    that.msgList.push(msgBlock);
+    that.msgCacheObj[toUserID].push(msgBlock);
+  }
+
+  //切换当前聊天对象
+  doSwitchCurTalker(item, tIndex){
+    const that = this;
+    that.curTalker = item;
+    that.msgList = that.msgCacheObj[that.curTalker.userID];
+    if(item.isUnread) {
+      //点击这行，有未读消息。那么将标记设为已读。处理talkerList排序
+      item.isUnread = false;
+
+      var curIndex = tIndex;
+      if (curIndex == 0) {
+        return;
+      }
+      var cacheItem = that.talkerList[0];
+      that.talkerList[0] = that.talkerList[curIndex];
+      that.talkerList[curIndex] = cacheItem;
+    }
+    // 调用设置消息已读
+    that.doSetMessageRead();
+    that.loadNewstQuoteData();
   }
 
   //加载聊天对象列表(采购商获取)
@@ -92,6 +176,7 @@ export default class IMManager{
     }).then(function (res) {
       if(res.isCompleted){
         let rData = res.data;
+        let curIndex = 0;
 
         that.talkerList = rData.map(function (item, index) {
           item.headImg = that.defaultImg;
@@ -100,6 +185,10 @@ export default class IMManager{
           item.time = '14:21';
           item.isActive = true;
 
+          if(item.userID == that.options.defaultTalkerId){
+            curIndex = index;
+          }
+
           return item;
 
         }).filter(item => Boolean(item.userID > 0 && item.userID != that.options.selfId));
@@ -107,8 +196,18 @@ export default class IMManager{
         if(that.talkerList <= 0){
           return false;
         }
-        that.curTalker = that.talkerList[0];
-        that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);
+
+        that.talkerList.map(function (item, index) {
+          if(!(that.msgCacheObj[item.userID] instanceof Array)){
+            that.msgCacheObj[item.userID] = [item.lastMessage];
+          }
+        })
+        that.curTalker = that.talkerList[curIndex];
+        // that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);
+        if(that.curTalker.lastMessage){
+          that.msgList = that.msgList.concat(that.msgCacheObj[that.curTalker.userID]);
+          that.doSetMessageRead();
+        }
       }
     });
 
@@ -131,38 +230,6 @@ export default class IMManager{
     })
 
     that.isLoaded = true;
-  }
-
-  //接受信息处理
-  doReceiveMessage(res){
-    const that = this;
-    if(!(res instanceof Array) || res.length <= 0){
-      return false;
-    }
-
-    var lastMsg = res[0];
-
-    console.log(res);
-    console.log(that.curTalker);
-    var fromUserID = lastMsg.fromUserID;
-
-    if(fromUserID == that.curTalker.userID){
-      that.msgList.push(lastMsg);  //新消息来自当前用户
-    }
-
-    that.talkerList.map(function (item, index) {
-      if(item.userID == fromUserID && fromUserID != that.curTalker.userID){
-        item.isUnread = true;    //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
-      }
-    })
-  }
-
-  //切换当前聊天对象
-  doSwitchCurTalker(item){
-    const that = this;
-    that.curTalker = item;
-    that.msgList = [that.curTalker.lastMessage];
-    that.loadNewstQuoteData();
   }
 
   //加载聊天对象的历史信息
@@ -204,6 +271,28 @@ export default class IMManager{
     }).catch(function (err) {
       fail && fail(err);
     })
+  }
+
+  //设置消息已读
+  async doSetMessageRead(){
+    const that = this;
+
+    let lastMsg = that.curTalker.lastMessage;
+
+    if(!lastMsg.dialogueID || !lastMsg){
+      return false;
+    }
+
+    await that.api.GHIMSetMessagesReaded({
+      relationType: that.options.relationType,
+      relationId: that.options.relationId,
+      dialogueId: lastMsg.dialogueID,
+    }).
+    then(function (res) {
+      if(res.isCompleted){
+        let rData = res.data;
+      }
+    });
   }
 
 };
