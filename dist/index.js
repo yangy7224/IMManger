@@ -65,7 +65,16 @@ export default class IMManager{
     this.msgCacheObj = {};   //所有的消息列表缓存，存储聊天列表对象在当前窗口产生的历史纪录.包括发送消息、接受消息。
     this.dialogueId = 0;  //当前对话Id
     this.isLoaded = false;  //IM是否初始化完成
+    this.postMsgTxt = '';  //当前输入文本消息
 
+    //获取报价后成功回调
+    this.getQuoteSuccess = options.getQuoteSuccess || function () {
+
+      }
+    //获取报价后失败回调
+    this.getQuoteFail = options.getQuoteFail || function () {
+
+      }
 
     this.init();   //初始化函数
   }
@@ -74,7 +83,7 @@ export default class IMManager{
     const that = this;
     if(that.mode == 'client'){
       await this.loadTalkerListData();
-      await this.loadNewstQuoteData();
+      await this.loadNewstQuoteData(that.getQuoteSuccess, that.getQuoteFail);
     }else{
       await this.loadTalkerInfo();
     }
@@ -84,6 +93,7 @@ export default class IMManager{
   doReceiveMessage(res){
     const that = this;
 
+    console.log(res)
     // messageType 0 和 1 代表什么意思？
     if(!(res instanceof Array) || res.length <= 0){
       return false;
@@ -102,13 +112,17 @@ export default class IMManager{
       // 等于1时，为把某个人的消息推送过来
       var lastMsg = res[0];
 
+      if(lastMsg.relationID != that.options.relationId){
+        return false;
+      }
+
       var fromUserID = lastMsg.fromUserID;
 
       that.msgCacheObj[fromUserID].push(lastMsg);
 
       //新消息来自当前用户
       if(fromUserID == that.curTalker.userID){
-        that.msgList.push(lastMsg);
+        that.msgList = that.msgCacheObj[fromUserID];
         that.doSetMessageRead();
       }
 
@@ -122,7 +136,7 @@ export default class IMManager{
   }
 
   //发送聊天消息处理
-  doSendMessage(vue, txt, relationId){
+  doSendMessage(vue, relationId){
     const that = this;
 
     let lastMsg = that.curTalker.lastMessage;
@@ -133,13 +147,14 @@ export default class IMManager{
       relationId: relationId,
       toUserId: that.curTalker.userID,
       dialogueId: lastMsg ? lastMsg.dialogueID : 0,
-      msg: txt
+      msg: that.postMsgTxt
     });
 
-    let msgBlock = {content: txt}
+    let msgBlock = {content: that.postMsgTxt, fromUserID: that.options.selfId};
 
-    that.msgList.push(msgBlock);
     that.msgCacheObj[toUserID].push(msgBlock);
+    that.msgList = that.msgCacheObj[toUserID];
+    that.postMsgTxt = '';
   }
 
   //切换当前聊天对象
@@ -161,7 +176,7 @@ export default class IMManager{
     }
     // 调用设置消息已读
     that.doSetMessageRead();
-    that.loadNewstQuoteData();
+    that.loadNewstQuoteData(that.getQuoteSuccess, that.getQuoteFail);
   }
 
   //加载聊天对象列表(采购商获取)
@@ -226,6 +241,7 @@ export default class IMManager{
       if(res.isCompleted) {
         that.curTalker = res.data;
         that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);
+        that.msgCacheObj[that.curTalker.userID] = [that.curTalker.lastMessage];
       }
     })
 
