@@ -103,7 +103,9 @@ export default class IMManager{
       // 大于1时，为系统把所有未读消息（包含所有人）全部推送过来
       res.map(function (item, index) {
         if(that.msgCacheObj[item.fromUserID] instanceof Array){
-          that.msgCacheObj[item.fromUserID].push(item);
+          if(item.relationID == that.options.relationId){
+            that.msgCacheObj[item.fromUserID].push(item);
+          }
         }else {
           that.msgCacheObj[item.fromUserID] = [];
         }
@@ -150,7 +152,7 @@ export default class IMManager{
       msg: that.postMsgTxt
     });
 
-    let msgBlock = {content: that.postMsgTxt, fromUserID: that.options.selfId};
+    let msgBlock = {fromUserName: vue.$store.getters.loginInfo.userName, createTime: new Date().toLocaleString(), content: that.postMsgTxt, fromUserID: that.options.selfId};
 
     that.msgCacheObj[toUserID].push(msgBlock);
     that.msgList = that.msgCacheObj[toUserID];
@@ -236,7 +238,7 @@ export default class IMManager{
     await this.api.GHIMGetTalkerInfo({
       relationType: that.options.relationType,
       relationId: that.options.relationId,
-      userId: that.options.defaultTalkerId
+      relationUserId: that.options.defaultTalkerId
     }).then(function (res) {
       if(res.isCompleted) {
         that.curTalker = res.data;
