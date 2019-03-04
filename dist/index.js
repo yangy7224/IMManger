@@ -90,7 +90,7 @@ export default class IMManager{
   }
 
   //接受信息处理
-  doReceiveMessage(res){
+  async doReceiveMessage(res){
     const that = this;
 
     console.log(res)
@@ -120,6 +120,19 @@ export default class IMManager{
 
       var fromUserID = lastMsg.fromUserID;
 
+      //如果这条消息是来自一个不在聊天列表当中的新对象
+      if(that.talkerList.filter(item => item.userID == fromUserID).length == 0){
+        that.msgCacheObj[fromUserID] = [];
+        //调用获取单独对象列表，并把他插入talkerList中去
+        await this.api.GHIMGetTalkerInfo({
+          relationType: that.options.relationType,
+          relationId: that.options.relationId,
+          relationUserId: that.options.selfId
+        }).then(function (res) {
+          that.talkerList.push(res.data);
+        })
+      }
+
       that.msgCacheObj[fromUserID].push(lastMsg);
 
       //新消息来自当前用户
@@ -129,8 +142,13 @@ export default class IMManager{
       }
 
       that.talkerList.map(function (item, index) {
+        //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
         if(item.userID == fromUserID && fromUserID != that.curTalker.userID){
-          item.isUnread = true;    //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
+          item.isUnread = true;
+        }
+        //新消息来时，更新聊天时间。
+        if(item.userID == fromUserID){
+          item.time = lastMsg.createTime ? lastMsg.createTime.substr(-8, 5) : '';
         }
       })
     }
@@ -199,7 +217,7 @@ export default class IMManager{
           item.headImg = that.defaultImg;
           item.isUnread = false;
           item.tag = 0;
-          item.time = '14:21';
+          item.time = (item.lastMessage && item.lastMessage.createTime) ? item.lastMessage.createTime.substr(-5) : '';
           item.isActive = true;
 
           if(item.userID == that.options.defaultTalkerId){
@@ -220,11 +238,16 @@ export default class IMManager{
           }
         })
         that.curTalker = that.talkerList[curIndex];
-        // that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);
-        if(that.curTalker.lastMessage){
-          that.msgList = that.msgList.concat(that.msgCacheObj[that.curTalker.userID]);
-          that.doSetMessageRead();
+
+        // 如果有未读消息列表
+        if(that.msgCacheObj[that.curTalker.userID].length > 0){
+          that.msgList = that.msgList.concat(that.msgCacheObj[that.curTalker.userID]); //拼接未读消息
+          that.doSetMessageRead(); //设置已读
+        }else{
+          // 如果没有未读消息列表
+          that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);  //取最近一条数据
         }
+
       }
     });
 
@@ -242,8 +265,16 @@ export default class IMManager{
     }).then(function (res) {
       if(res.isCompleted) {
         that.curTalker = res.data;
-        that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);
-        that.msgCacheObj[that.curTalker.userID] = [that.curTalker.lastMessage];
+        let lastMsg = that.curTalker.lastMessage;
+        let toUserID = that.curTalker.userID;
+
+        that.msgCacheObj[toUserID] = [];
+
+        if(lastMsg){
+          that.msgCacheObj[toUserID].push(lastMsg);
+          that.msgList = that.msgCacheObj[toUserID];
+        }
+
       }
     })
 
