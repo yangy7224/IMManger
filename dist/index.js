@@ -94,7 +94,7 @@ export default class IMManager{
     const that = this;
 
     console.log(res)
-    // messageType 0 和 1 代表什么意思？
+
     if(!(res instanceof Array) || res.length <= 0){
       return false;
     }
@@ -117,40 +117,51 @@ export default class IMManager{
       if(lastMsg.relationID != that.options.relationId){
         return false;
       }
+      // messageType为1时，为用户消息
+      if(lastMsg.messageType == 1){
 
-      var fromUserID = lastMsg.fromUserID;
+        var fromUserID = lastMsg.fromUserID;
 
-      //如果这条消息是来自一个不在聊天列表当中的新对象
-      if(that.talkerList.filter(item => item.userID == fromUserID).length == 0){
-        that.msgCacheObj[fromUserID] = [];
-        //调用获取单独对象列表，并把他插入talkerList中去
-        await this.api.GHIMGetTalkerInfo({
-          relationType: that.options.relationType,
-          relationId: that.options.relationId,
-          relationUserId: that.options.selfId
-        }).then(function (res) {
-          that.talkerList.push(res.data);
+        //如果这条消息是来自一个不在聊天列表当中的新对象
+        if(that.talkerList.filter(item => item.userID == fromUserID).length == 0){
+          that.msgCacheObj[fromUserID] = [];
+          //调用获取单独对象列表，并把他插入talkerList中去
+          let listData = {
+            userID: lastMsg.fromUserID,
+            userName: lastMsg.fromUserName,
+            nickName: lastMsg.fromUserName,
+            lastMessage: lastMsg,
+            connectionId: null,
+            avatar: lastMsg.toUserAvatarUrl
+          }
+
+          that.talkerList.push(listData);
+        }
+
+        that.msgCacheObj[fromUserID].push(lastMsg);
+
+        //新消息来自当前用户
+        if(fromUserID == that.curTalker.userID){
+          that.msgList = that.msgCacheObj[fromUserID];
+          that.doSetMessageRead();
+        }
+
+        that.talkerList.map(function (item, index) {
+          //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
+          if(item.userID == fromUserID && fromUserID != that.curTalker.userID){
+            item.isUnread = true;
+          }
+          //新消息来时，更新聊天时间。
+          if(item.userID == fromUserID){
+            item.time = lastMsg.createTime ? lastMsg.createTime.substr(-8, 5) : '';
+          }
         })
       }
 
-      that.msgCacheObj[fromUserID].push(lastMsg);
+      // messageType为21时，为系统消息
+      if(lastMsg.messageType == 21){
 
-      //新消息来自当前用户
-      if(fromUserID == that.curTalker.userID){
-        that.msgList = that.msgCacheObj[fromUserID];
-        that.doSetMessageRead();
       }
-
-      that.talkerList.map(function (item, index) {
-        //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
-        if(item.userID == fromUserID && fromUserID != that.curTalker.userID){
-          item.isUnread = true;
-        }
-        //新消息来时，更新聊天时间。
-        if(item.userID == fromUserID){
-          item.time = lastMsg.createTime ? lastMsg.createTime.substr(-8, 5) : '';
-        }
-      })
     }
 
   }
@@ -234,7 +245,7 @@ export default class IMManager{
 
         that.talkerList.map(function (item, index) {
           if(!(that.msgCacheObj[item.userID] instanceof Array)){
-            that.msgCacheObj[item.userID] = [item.lastMessage];
+            that.msgCacheObj[item.userID] = item.lastMessage ? [item.lastMessage] : [];
           }
         })
         that.curTalker = that.talkerList[curIndex];
@@ -328,7 +339,7 @@ export default class IMManager{
 
     let lastMsg = that.curTalker.lastMessage;
 
-    if(!lastMsg.dialogueID || !lastMsg){
+    if(!lastMsg || !lastMsg.dialogueID){
       return false;
     }
 
