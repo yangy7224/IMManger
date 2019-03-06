@@ -37,7 +37,8 @@ const api = {
   // 获取最新报价 /Inquiry/GetQuoteByLast
   GHInquiryGetQuoteByLast: (params) => {
     return request.get('/Inquiry/GetQuoteByLast', {
-      params: params
+      params: params,
+      ...baseLoadingConfig
     })
   },
 
@@ -90,7 +91,7 @@ export default class IMManager{
   }
 
   //接受信息处理
-  async doReceiveMessage(res){
+  async doReceiveMessage(res, callback){
     const that = this;
 
     console.log(res)
@@ -156,11 +157,14 @@ export default class IMManager{
             item.time = lastMsg.createTime ? lastMsg.createTime.substr(-8, 5) : '';
           }
         })
-      }
 
+        callback && callback('messageUser');
+      }
       // messageType为21时，为系统消息
       if(lastMsg.messageType == 21){
-
+        if(lastMsg.fromUserID == that.curTalker.userID){
+          callback && callback('messageSystem');
+        }
       }
     }
 
