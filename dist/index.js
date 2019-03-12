@@ -1,9 +1,12 @@
 /**
  * Created by yiyang1990 on 2019/2/27.
  */
-import request from '~/utils/request'
+let isMiniProgram = !Boolean(window);
 
-const defaultImg = require('~/static/images/icon-default-head.png');
+let regeneratorRuntime = isMiniProgram ? require('../../../miniprogram_npm/regenerator-runtime/index.js') : '';
+let request = isMiniProgram ? require('../../../utils/request.js').default : require('~/utils/request').default;
+
+const defaultImg = isMiniProgram ? '' : require('~/static/images/icon-default-head.png');
 
 const baseLoadingConfig = {
   isNeedLoadingShow: true
@@ -45,6 +48,13 @@ const api = {
   // 创建报价单（修改也视为新建，生成一个新的报价单ID）
   GHInquiryCreateQuote: (params) => {
     return request.post('/Inquiry/CreateQuote', params, baseLoadingConfig)
+  },
+
+// 获取近3个月的“聊天对象”列表，附带最新消息。/IM/GetTalkers
+  GHIMGetTalkers: (params) => {
+    return request.get('/IM/GetTalkers', {
+            params: params
+    })
   }
 };
 
@@ -82,6 +92,11 @@ export default class IMManager{
 
   async init(){
     const that = this;
+
+    if(that.mode == 'mp'){
+      return false;
+    }
+
     if(that.mode == 'client'){
       await this.loadTalkerListData();
       await this.loadNewstQuoteData(that.getQuoteSuccess, that.getQuoteFail);
