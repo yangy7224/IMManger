@@ -4,7 +4,7 @@
 let isMiniProgram = !Boolean(window);
 
 // 小程序下要解除下面这个注释
-// let regeneratorRuntime = isMiniProgram ? require('../../../miniprogram_npm/regenerator-runtime/index.js') : '';
+let regeneratorRuntime = isMiniProgram ? require('../../../miniprogram_npm/regenerator-runtime/index.js') : '';
 let request = isMiniProgram ? require('../../../utils/request.js').default : require('~/utils/request').default;
 
 const defaultImg = isMiniProgram ? '' : require('~/static/images/icon-default-head.png');
@@ -16,31 +16,31 @@ const baseLoadingConfig = {
 const api = {
   // 获取指定关联对象中的所有聊天记录，用于前台。
   GHIMGetHistoryMessagesByRelationTalker: (params) => {
-    return request.get('/IM/GetHistoryMessagesByRelationTalker', {
-      params: params
+    return request.get('/IM/GetHistoryMessagesByRelationTalker', isMiniProgram ? params : {
+            params: params
     })
   },
   // 获取关联对象的聊天对象列表，附带最新消息（仅商城端采购商调用）
   GHIMGetTalkerMessages: (params) => {
-    return request.get('/IM/GetTalkerByRelation', {
-      params: params
-    })
+    return request.get('/IM/GetTalkerByRelation', isMiniProgram ? params : {
+            params: params
+        })
   },
   // 获取关联对象用户信息（仅非采购商调用）
   GHIMGetTalkerInfo: (params) => {
-    return request.get('IM/GetTalkerInfo', {
+    return request.get('IM/GetTalkerInfo', isMiniProgram ? params : {
       params: params
     })
   },
   // 设置消息已读
   GHIMSetMessagesReaded: (params) => {
-    return request.get('/IM/SetMessagesReaded', {
-      params: params
-    })
+    return request.get('/IM/SetMessagesReaded', isMiniProgram ? params : {
+            params: params
+        })
   },
   // 获取最新报价 /Inquiry/GetQuoteByLast
   GHInquiryGetQuoteByLast: (params) => {
-    return request.get('/Inquiry/GetQuoteByLast', {
+    return request.get('/Inquiry/GetQuoteByLast', isMiniProgram ? params : {
       params: params,
       ...baseLoadingConfig
     })
@@ -53,8 +53,8 @@ const api = {
 
 // 获取近3个月的“聊天对象”列表，附带最新消息。/IM/GetTalkers
   GHIMGetTalkers: (params) => {
-    return request.get('/IM/GetTalkers', {
-      params: params
+    return request.get('/IM/GetTalkers', isMiniProgram ? params : {
+            params: params
     })
   }
 };
@@ -195,15 +195,24 @@ export default class IMManager{
     let lastMsg = that.curTalker.lastMessage;
     var toUserID = that.curTalker.userID;
 
-    vue.$store.commit('msgDoSendMessage', {
-      type: 'Inquiry',
-      relationId: relationId,
-      toUserId: that.curTalker.userID,
-      dialogueId: lastMsg ? lastMsg.dialogueID : 0,
-      msg: that.postMsgTxt
-    });
+    if(isMiniProgram){
+        getApp().globalData.signal.sendMessage('Inquiry', relationId, that.curTalker.userID, lastMsg ? lastMsg.dialogueID : 0, that.postMsgTxt);
+    }else{
+        vue.$store.commit('msgDoSendMessage', {
+            type: 'Inquiry',
+            relationId: relationId,
+            toUserId: that.curTalker.userID,
+            dialogueId: lastMsg ? lastMsg.dialogueID : 0,
+            msg: that.postMsgTxt
+        });
+    }
 
-    let msgBlock = {fromUserName: vue.$store.getters.loginInfo.userName, createTime: new Date().toLocaleString(), content: that.postMsgTxt, fromUserID: that.options.selfId};
+
+    let msgBlock = {fromUserName: isMiniProgram ? wx.getStorageSync('wxid_userinfo').userName : vue.$store.getters.loginInfo.userName,
+        createTime: new Date().toLocaleString(),
+        content: that.postMsgTxt,
+        fromUserID: that.options.selfId
+    };
 
     that.msgCacheObj[toUserID].push(msgBlock);
     that.msgList = that.msgCacheObj[toUserID];
@@ -243,6 +252,7 @@ export default class IMManager{
       relationUserId: that.options.selfId, //创建单者的ID。在客户端指的是本人，在供应商端指的是聊天对象。
       defaultTalkerId: that.options.defaultTalkerId
     }).then(function (res) {
+        res = isMiniProgram ? res.data : res;
       if(res.isCompleted){
         let rData = res.data;
         let curIndex = 0;
@@ -297,6 +307,7 @@ export default class IMManager{
       relationId: that.options.relationId,
       relationUserId: that.options.defaultTalkerId
     }).then(function (res) {
+      res = isMiniProgram ? res.data : res;
       if(res.isCompleted) {
         that.curTalker = res.data;
         let lastMsg = that.curTalker.lastMessage;
@@ -340,6 +351,7 @@ export default class IMManager{
       lastMessageId: that.msgList[0].imMessageID
     }).
     then(function (res) {
+        res = isMiniProgram ? res.data : res;
       if(res.isCompleted){
         let rData = res.data;
 
@@ -356,6 +368,7 @@ export default class IMManager{
     let supplierUserId = (that.mode == 'client' ? that.curTalker.userID : that.options.selfId); //在客户端，供应商为对话者，取对话者ID。在供应商端，供应商为自己本人，取自己的ID
 
     await that.api.GHInquiryGetQuoteByLast({inquiryId: that.options.relationId, supplierUserId: supplierUserId}).then(function (res) {
+        res = isMiniProgram ? res.data : res;
       if(res.isCompleted){
         success && success(res);
       }else {
@@ -382,6 +395,7 @@ export default class IMManager{
       dialogueId: lastMsg.dialogueID,
     }).
     then(function (res) {
+        res = isMiniProgram ? res.data : res;
       if(res.isCompleted){
         let rData = res.data;
       }
