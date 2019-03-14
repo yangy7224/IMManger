@@ -3,7 +3,8 @@
  */
 let isMiniProgram = !Boolean(window);
 
-let regeneratorRuntime = isMiniProgram ? require('../../../miniprogram_npm/regenerator-runtime/index.js') : '';
+// 小程序下要解除下面这个注释
+// let regeneratorRuntime = isMiniProgram ? require('../../../miniprogram_npm/regenerator-runtime/index.js') : '';
 let request = isMiniProgram ? require('../../../utils/request.js').default : require('~/utils/request').default;
 
 const defaultImg = isMiniProgram ? '' : require('~/static/images/icon-default-head.png');
