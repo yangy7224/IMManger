@@ -125,8 +125,12 @@ export default class IMManager{
                     }
                 }else {
                     that.msgCacheObj[item.fromUserID] = [];
+                    if(item.relationID == that.options.relationId){
+                      that.msgCacheObj[item.fromUserID].push(item);
+                   }
                 }
             })
+           that.doSetMessageRead();
         }else{
             // 等于1时，为把某个人的消息推送过来
             var lastMsg = res[0];
@@ -208,7 +212,6 @@ export default class IMManager{
                 msg: that.postMsgTxt
             });
         }
-
 
         let msgBlock = {fromUserName: isMiniProgram ? wx.getStorageSync('wxid_userinfo').userName : vue.$store.getters.loginInfo.userName,
             createTime: new Date().toLocaleString(),
