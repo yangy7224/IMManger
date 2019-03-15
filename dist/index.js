@@ -165,16 +165,18 @@ export default class IMManager{
           that.doSetMessageRead();
         }
 
-        that.talkerList.map(function (item, index) {
-          //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
-          if(item.userID == fromUserID && fromUserID != that.curTalker.userID){
-            item.isUnread = true;
+        if(this.mode == 'client') {
+              that.talkerList.map(function (item, index) {
+                  //新消息来时，在聊天列表且不是当前的聊天对象，显示新消息提醒。
+                  if (item.userID == fromUserID && fromUserID != that.curTalker.userID) {
+                      item.isUnread = true;
+                  }
+                  //新消息来时，更新聊天时间。
+                  if (item.userID == fromUserID) {
+                      item.time = lastMsg.createTime ? lastMsg.createTime.substr(-8, 5) : '';
+                  }
+              })
           }
-          //新消息来时，更新聊天时间。
-          if(item.userID == fromUserID){
-            item.time = lastMsg.createTime ? lastMsg.createTime.substr(-8, 5) : '';
-          }
-        })
 
         callback && callback('messageUser');
       }
