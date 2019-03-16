@@ -130,6 +130,7 @@ export default class IMManager{
                    }
                 }
             })
+
            that.doSetMessageRead();
         }else{
             // 等于1时，为把某个人的消息推送过来
@@ -281,19 +282,23 @@ export default class IMManager{
                     return false;
                 }
 
-                that.talkerList.map(function (item, index) {
-                    // if(!(that.msgCacheObj[item.userID] instanceof Array)){
-                    that.msgCacheObj[item.userID] = item.lastMessage ? [item.lastMessage] : [];
-                    // }
-                })
                 that.curTalker = that.talkerList[curIndex];
 
                 // 如果有未读消息列表
                 if(that.msgCacheObj[that.curTalker.userID].length > 0){
                     that.msgList = that.msgCacheObj[that.curTalker.userID].concat(that.msgList); //拼接未读消息
                     that.doSetMessageRead(); //设置已读
+                    that.talkerList.map(function (item, index) {
+                      if(item.userID == that.curTalker.userID){
+                        return;
+                      }
+                      that.msgCacheObj[item.userID] = item.lastMessage ? [item.lastMessage] : [];
+                    })
                 }else{
-                    // 如果没有未读消息列表
+                  // 如果没有未读消息列表
+                   that.talkerList.map(function (item, index) {
+                     that.msgCacheObj[item.userID] = item.lastMessage ? [item.lastMessage] : [];
+                   })
                     that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);  //取最近一条数据
                 }
 
