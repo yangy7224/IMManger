@@ -285,7 +285,7 @@ export default class IMManager{
                 that.curTalker = that.talkerList[curIndex];
 
                 // 如果有未读消息列表
-                if(that.msgCacheObj[that.curTalker.userID].length > 0){
+                if(that.msgCacheObj[that.curTalker.userID] && that.msgCacheObj[that.curTalker.userID].length > 0){
                     that.msgList = that.msgCacheObj[that.curTalker.userID].concat(that.msgList); //拼接未读消息
                     that.doSetMessageRead(); //设置已读
                     that.talkerList.map(function (item, index) {
@@ -328,7 +328,7 @@ export default class IMManager{
                 }
 
                 // 如果有未读消息列表
-                if(that.msgCacheObj[toUserID].length > 0){
+                if(that.msgCacheObj[toUserID] && that.msgCacheObj[toUserID].length > 0){
                     that.msgList = that.msgCacheObj[toUserID].concat(that.msgList); //拼接未读消息 //拼接未读消息
                     that.doSetMessageRead(); //设置已读
                 }else{
