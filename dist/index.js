@@ -38,9 +38,9 @@ const api = {
                 params: params
             })
     },
-    // 获取最新报价 /Inquiry/GetQuoteByLast
-    GHInquiryGetQuoteByLast: (params) => {
-        return request.get('/Inquiry/GetQuoteByLast', isMiniProgram ? params : {
+    // 获取最新报价 /Inquiry/GetQuoteByLastForCustomer
+    GHInquiryGetQuoteByLastForCustomer: (params) => {
+        return request.get('/Inquiry/GetQuoteByLastForCustomer', isMiniProgram ? params : {
                 params: params,
                 ...baseLoadingConfig
             })
@@ -296,7 +296,7 @@ export default class IMManager{
                     })
                 }else{
                   // 如果没有未读消息列表
-                   that.talkerList.map(function (item, index) {
+                    that.talkerList.map(function (item, index) {
                      that.msgCacheObj[item.userID] = item.lastMessage ? [item.lastMessage] : [];
                    })
                     that.curTalker.lastMessage && that.msgList.push(that.curTalker.lastMessage);  //取最近一条数据
@@ -379,7 +379,7 @@ export default class IMManager{
 
         let supplierUserId = (that.mode == 'client' ? that.curTalker.userID : that.options.selfId); //在客户端，供应商为对话者，取对话者ID。在供应商端，供应商为自己本人，取自己的ID
 
-        await that.api.GHInquiryGetQuoteByLast({inquiryId: that.options.relationId, supplierUserId: supplierUserId}).then(function (res) {
+        await that.api.GHInquiryGetQuoteByLastForCustomer({inquiryId: that.options.relationId, supplierUserId: supplierUserId}).then(function (res) {
             res = isMiniProgram ? res.data : res;
             if(res.isCompleted){
                 success && success(res);
